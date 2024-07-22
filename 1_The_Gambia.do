@@ -198,13 +198,15 @@ lab var educ_2  "Educ: Basic"
 lab var educ_3  "Educ: Intermediate"
 lab var educ_4  "Educ: Advanced"
 
-* Sex
-gen female = ilo_sex == 2 
+	recode educ_* ( 1 0  = . ) if age < 15 // Education only for those in working age. 
 
-* Age 
-gen age = hl6
-gen age_sq = age^2 
-	
+	* >> Sex
+	gen female = ilo_sex == 2 
+
+	* >> Age 
+	gen age = hl6
+	gen age_sq = age^2 
+		
 	
 	* Order to check identifiers
 	order hh1 hh2  hl1 hl3 hh6 hh7 hh8 hh9 hh10 hh11  hl3x
@@ -213,7 +215,7 @@ gen age_sq = age^2
 	***
 	tab emp6  
 	
-	* Unpaid Family workers // unpaid_w
+	* >> Unpaid Family workers // unpaid_w
 	sum unpaid_w emp6
 	tab unpaid_w emp6 , row  
 	tab unpaid_w emp6 , col   
@@ -227,7 +229,7 @@ gen age_sq = age^2
 	
 	sum inc_by_hour , d
 	
-	* Unemployment 	
+	* >> Unemployment 	
 	cap drop d_look4job
 	gen d_look4job = ( js1 == 1 |js2 == 1 ), 
 	*replace d_look4job = . if js1 == . & js2 == . 
@@ -237,7 +239,7 @@ gen age_sq = age^2
 	tab d_look4job ilo_wap
 	tab age ilo_wap 
 	
-	* ILO_LFS: Labor force status defined by ILO
+	* >> ILO_LFS: Labor force status defined by ILO
 	tab ilo_lfs
 	sum age if ilo_lfs == 3
 	
@@ -248,9 +250,99 @@ gen age_sq = age^2
 	cap drop neet
 	gen neet = 0 if age >= 15 & age < 65 
 	replace neet = 1 if ( ilo_lfs ==  3 | ilo_lfs == 2 ) & (ed6 == 2 ) & neet == 0 & (tr4 == .) & (d_look4job == 0)
-	*gen yeet = 0 if age >= 15 & age < 30
+	label var neet "Person not employed, in eduaction, or training. Age 15-65"
 	
-	* Define labor force participation  myself (include people producing in their own farms and or family business )
+	* >> Define labor force participation  myself (include people producing in their own farms and or family business )
+	gen salaried		= emp4 
+	gen selfemp			= emp5 
+	replace selfemp 	= 1 if emp11 == 1 
+	
+	gen help_fami		= emp6
+	gen tempo_leave		= emp7
+	replace tempo_leave = 0 if inlist( emp9 , 2 ,97)
+	replace tempo_leave = 1 if emp10  == 1
+	
+	cap noi drop temp_farm	
+	gen temp_farm		= inlist(emp12 , "A" , "AB" , "B" , "C" ) 
+	replace temp_farm	= . if emp12 == ""
+	replace temp_farm	= 1 if emp13 != "" 
+	
+	* >> Labor Force Participation (Employed, working at home, looking for a job) 
+	cap drop lfp_sar
+	gen lfp_sar 		= 0 if age >= 15 
+	replace lfp_sar 	= 1 if lfp_sar == 0 & (  salaried == 1 | selfemp ==  1 | tempo_leave == 1 )
+	replace lfp_sar		= 2 if d_look4job == 1 & lfp_sar == 0
+	
+	cap drop lfp_plus_domestic
+	gen lfp_plus_domestic 		= lfp_sar
+	replace lfp_plus_domestic	= 4 if temp_farm == 1  & ( lfp_plus_domestic == 0 |   lfp_plus_domestic == .)
+	replace lfp_plus_domestic	= 4 if ( emp13a == 1 | emp13b == 1 | emp13c == 1 | emp13d == 1 ) & ( lfp_plus_domestic == 0 |  lfp_plus_domestic == .)
+	replace lfp_plus_domestic	= 1 if ( cm1 == 1 |  cm1 == 2 ) & ( lfp_plus_domestic == 0 | lfp_plus_domestic == .)
+	replace lfp_plus_domestic	= 5 if help_fami == 1 & ( lfp_plus_domestic == 0 |  lfp_plus_domestic == .)
+	replace lfp_plus_domestic	= 1 if inc_d_total > 10 & inc_d_total != . & ( lfp_plus_domestic == 0 |  lfp_plus_domestic == .)
+	
+	replace lfp_plus_domestic	= 6 if opg1 == 1 & ( lfp_plus_domestic == 0 |  lfp_plus_domestic == .)
+	replace lfp_plus_domestic	= 7 if opg3 == 1 & ( lfp_plus_domestic == 0 |  lfp_plus_domestic == .)
+	
+	label define lfp_sar  0 "Outside of LF" 1 "Employed" 2 "Unemployed" 4 "Farm related" 5 "Help family" 6 "OPG: Gather" 7 "OPG: Hunt" , modify 
+	label val lfp_sar lfp_sar
+	label val lfp_plus_domestic lfp_sar
+	
+	tab lfp_sar				[iw = ilo_wgt ]
+	tab lfp_plus_domestic	[iw = ilo_wgt ]
+	
+	tab lfp_plus_domestic [iw = ilo_wgt ] if age > 17 & age < 65
+	bys female : tab lfp_plus_domestic [iw = ilo_wgt ] if age > 17 & age < 65
+	
+	bys female : tab js5 [ iw = ilo_wgt ] if age > 17 & age < 65 & lfp_plus_domestic == 0
+	bys female : tab js5 if age > 17 & age < 65 & lfp_plus_domestic == 0
+	
+	bys female : tab js8 [ iw = ilo_wgt ] if age > 17 & age < 65 & lfp_plus_domestic == 0
+	bys female : tab js8 if age > 17 & age < 65 & lfp_plus_domestic == 0
+	
+	/* Employment battery questions:
+		EMP4. Last week, from last (Monday) up to (Sunday), did (you/NAME) work for someone else for pay, for one or more hours?
+		YES 1 →CM1
+		NO 2
+		EMP5. Last week, did (you/NAME) run or do any kind of business, farming or other activity to generate income?
+		YES 1→ EMP13
+		NO 2
+		EMP6. Last week, did (you/NAME) help in a family business or farm?
+		YES 1→ EMP13
+		NO 2
+		EMP7. (Do/does) (you/NAME) have a paid job or income generating activity, but (were/was) did not work last week?
+		YES 1
+		NO 2→EMP12
+		EMP8. Why were you absent from your work in the last week?
+		EMP9. Including the time that (you/NAME) (have/has) been absent, will (you/he/she) return to that same job or business in 3 months or less?
+	(Waiting for a new job to start does not count as temporary
+	absences)
+		EMP10. (Do/Does) (you/NAME) continue to receive an income from (your/his/her) job or business during this absence? 
+		EMP11. During the low or off-season, (do/does) (you/NAME) continue to do some work for that job or business?
+		EMP12. Last week, did (you/NAME) do any work in… ? FARMING /REARING FARM ANIMALS / FISHING OR FISH FARMING / NONE OF THE ABOVE
+		EMP13. Was this work that you mentioned in…? FARMING / REARING FARM ANIMALS / [FISHING OR FISH FARMING] / ANOTHER TYPE OF JOB OR BUSINESS
+		EMP14. Thinking about the work in (farming, rearing animals [and/or fishing]) (you/NAME) (do/does), are the products intended…… ?
+		ONLY FOR SALE/EXCHANGE 1→CM1
+		MAINLY FOR SALE/EXCHANGE 2→CM1
+		MAINLY FOR FAMILY USE 3
+		ONLY FOR FAMILY USE 4
+
+		EMP15. (Were/Was) (you/NAME) hired by someone else to do this work?
+		EMP16. What are the main products from (farming, rearing animals, [and/or fishing]) that (you/NAME) was/were working on? 
+		EMP17. Last week, on how many days did (you/NAME) do this work?
+		EMP18. How many hours per day did (you/NAME) spend doing this last week? 
+	*/
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 *------------------------------------------------------------------------------*
@@ -279,33 +371,57 @@ gen age_sq = age^2
 	Area: hh7 : rural - urban
 	
 	w_wap: Working age population 
+	
+	Education: educ_1 educ_2 educ_3 educ_4
 	*/
 	
 	recode js1 js2 (2=0) 
 	gen obs = 1
 	gen uno  =1
 	
+	* Total 
+preserve 
+recode female neet js1 js2  (1 = 100)
+	collapse (mean) hh7 w_wap female inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 educ_1 educ_2 educ_3 educ_4 (sum) uno (rawsum) obs [ iweight = ilo_wgt], 
+	export excel using "${dir_out}/Tables/Descriptive_statistics.xlsx" ,  sheet("Total" , replace)  firstrow(varl)
+restore 
+
 	* By AREA
 preserve 
 recode female neet js1 js2  (1 = 100)
-	collapse (mean) female inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 (sum) uno (rawsum) obs  [ iweight = ilo_wgt], by( hh7 )
-	export excel using "${dir_out}/Tables/Descriptive_statistics.xlsx" ,  sheet("By Area" , replace)  firstrow(varl)
+	collapse (mean) w_wap female inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 educ_1 educ_2 educ_3 educ_4 (sum) uno (rawsum) obs  [ iweight = ilo_wgt], by( hh7 )
+	export excel using "${dir_out}/Tables/Descriptive_statistics.xlsx" ,  sheet("By area" , replace)  firstrow(varl)
 restore 
 
 	* By AREA sex 
 preserve 
 recode female neet js1 js2  (1 = 100)
-	collapse (mean) inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 (sum) uno (rawsum) obs  [ iweight = ilo_wgt], by( hh7 female)
-	export excel using "${dir_out}/Tables/Descriptive_statistics.xlsx" ,  sheet("By Area_sex" , replace)  firstrow(varl)
+	collapse (mean) w_wap inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 educ_1 educ_2 educ_3 educ_4 (sum) uno (rawsum) obs  [ iweight = ilo_wgt], by( hh7 female)
+	export excel using "${dir_out}/Tables/Descriptive_statistics.xlsx" ,  sheet("By area sex" , replace)  firstrow(varl)
 restore 
 	
 	* By sex 
 	preserve 
 recode female neet js1 js2  (1 = 100)
-	collapse (mean) inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 (sum) uno (rawsum) obs  [ iweight = ilo_wgt], by( female)
+	collapse (mean) hh7 w_wap inc_by_hour inc_d_total inc_d_selfw inc_d_salw  wkt1 wkt3 wkt6 wkt8a neet js1 js2 educ_1 educ_2 educ_3 educ_4 (sum) uno (rawsum) obs  [ iweight = ilo_wgt], by( female)
 	export excel using "${dir_out}/Tables/Descriptive_statistics.xlsx" ,  sheet("By sex" , replace)  firstrow(varl)
 restore 
-	
+
+
+
+
+
+
+
+
+
+
+*------------------------------------------------------------------------------*
+	*----------------------------- Graphs --------------------------------*
+*------------------------------------------------------------------------------*	
+*------------------------------------------------------------------------------*
+	*----------------------------- Graphs --------------------------------*
+*------------------------------------------------------------------------------*
 *------------------------------------------------------------------------------*
 	*----------------------------- Graphs --------------------------------*
 *------------------------------------------------------------------------------*
@@ -375,6 +491,121 @@ label var inc_by_hour "Total income per hour"
 	
 	
 	
+		
+*------------------------------------------------------------------------------*
+*-------------------------------- Regressions ---------------------------------*
+*------------------------------------------------------------------------------*
+*------------------------------------------------------------------------------*
+*-------------------------------- Regressions ---------------------------------*
+*------------------------------------------------------------------------------*
+*------------------------------------------------------------------------------*
+*-------------------------------- Regressions ---------------------------------*
+*------------------------------------------------------------------------------*
+*------------------------------------------------------------------------------*
+*-------------------------------- Regressions ---------------------------------*
+*------------------------------------------------------------------------------*
+
+	ds sector10_2 - sector10_7
+	glo sector		"`r(varlist)'"
+	
+	ds educ_2 - educ_4 
+	glo edulvl		"`r(varlist)'"
+	
+	ds firm_size_WB_1 - firm_size_WB_3
+	glo firmsize	"`r(varlist)'"
+	
+	****************************************************************************
+	*** OAXACA BLINDER DECOMPOSITION 
+	****************************************************************************
+	
+	cap noi drop _supp _match
+	nopomatch age age_sq  $edulvl  $sector  $firmsize, outcome(ln_inc_by_hour) by(female) fact(ilo_wgt) sd 
+	
+	cap noi drop _supp _match
+	nopomatch age age_sq , outcome(ln_inc_by_hour) by(female) fact(ilo_wgt) sd 
+	
+	
+oaxaca ln_inc_by_hour (age: age age_sq) (edulvl: $edulvl) [iweight = ilo_wgt] , by(female) relax vce(r) // The effect of education on male and female income are different 
+estimates store OB_1
+oaxaca ln_inc_by_hour (age: age age_sq)  (edulvl: $edulvl) (sectors: $sector) [iweight = ilo_wgt] , by(female) relax vce(r) // The effect of selection into economic activity
+estimates store OB_2
+oaxaca ln_inc_by_hour (age: age age_sq)  (edulvl: $edulvl) (sectors: $sector) (firmsize: $firmsize) [iweight = ilo_wgt] , by(female) relax vce(r) // Introducing firms size reduces the available smaple ostensibly 
+estimates store OB_3
+	
+	label var ln_inc_by_hour	"LN total income per hour"
+	label var ln_inc_d_total	"LN total daily income"
+	label var ln_inc_d_selfw	"LN self employed income"
+	label var ln_inc_d_salw		"LN salaried income"
+	
+	*reg ln_inc_by_hour female i.cm2b  
+	foreach inc in ln_inc_by_hour ln_inc_d_total ln_inc_d_selfw ln_inc_d_salw  {
+		if "`inc'" != "ln_inc_by_hour" {
+		    local add_control = " wkt8a "
+		}
+		
+		local vrlab = `"`: var label `inc' '"'
+		
+		reg `inc' female age age_sq  $edulvl $sector $firmsize
+		
+		oaxaca `inc' (age: age age_sq) (edulvl: $edulvl) `add_control'  [iweight = ilo_wgt] , by(female) relax vce(r) // The effect of education on male and female income are different 
+		estimates store OB_1
+		oaxaca `inc' (age: age age_sq)  (edulvl: $edulvl) (sectors: $sector) `add_control' [iweight = ilo_wgt] , by(female) relax vce(r) // The effect of selection into economic activity
+		estimates store OB_2
+		oaxaca `inc' (age: age age_sq)  (edulvl: $edulvl) (sectors: $sector) (firmsize: $firmsize) `add_control' [iweight = ilo_wgt] , by(female) relax vce(r) // The effect of selection into economic activity
+		estimates store OB_3
+		
+		esttab OB_1 OB_2 OB_3 using "${dir_out}/Tables/1. OB Decomposition in `vrlab'.csv" ,  stats(N ) label replace addnotes("Group 1 == Males. Group 2 == Females" )  title("Oaxaca Blinder Decomposition") b(3) t(3)
+	
+	
+		* Nopo common support exercise 
+		*	
+		cap noi drop _supp _match
+		nopomatch age age_sq  $edulvl  `add_control'  , outcome(ln_inc_by_hour) by(female) fact(ilo_wgt) sd filename("${dir_out}/Tables/OB_N_1_`inc'") replace
+		*
+		cap noi drop _supp _match
+		nopomatch age age_sq  $edulvl  $sector  `add_control'  , outcome(ln_inc_by_hour) by(female) fact(ilo_wgt) sd filename("${dir_out}/Tables/OB_N_2_`inc'") replace
+		*
+		cap noi drop _supp _match
+		nopomatch age age_sq  $edulvl  $sector  $firmsize  `add_control'  , outcome(ln_inc_by_hour) by(female) fact(ilo_wgt) sd filename("${dir_out}/Tables/OB_N_3_`inc'") replace
+			
+	}
+	 
+	*** Nopo not in logs
+	preserve
+	* inc_d_salw
+	foreach inc in inc_by_hour inc_d_total inc_d_selfw   {  
+		if "`inc'" != "inc_by_hour" {
+		    local add_control = " wkt8a "
+		}
+		
+		local vrlab = `"`: var label `inc' '"'
+		
+		* Nopo common support exercise 
+		*	
+		cap noi drop _supp _match
+		nopomatch age age_sq  $edulvl  `add_control'  , outcome(`inc') by(female) fact(ilo_wgt) sd filename("${dir_out}/Tables/OB_N_1_`inc'") replace
+		*
+		cap noi drop _supp _match
+		nopomatch age age_sq  $edulvl  $sector  `add_control'  , outcome(`inc') by(female) fact(ilo_wgt) sd filename("${dir_out}/Tables/OB_N_2_`inc'") replace
+		*
+		cap noi drop _supp _match
+		nopomatch age age_sq  $edulvl  $sector  $firmsize  `add_control'  , outcome(`inc') by(female) fact(ilo_wgt) sd filename("${dir_out}/Tables/OB_N_3_`inc'") replace
+			
+	}
+	restore 
+	
+	preserve
+	clear
+	set obs 0
+	gen inc_type = ""
+	foreach inc in ln_inc_by_hour inc_by_hour inc_d_total inc_d_selfw   {
+		append using "${dir_out}/Tables/OB_N_1_`inc'"
+		append using "${dir_out}/Tables/OB_N_2_`inc'"
+		append using "${dir_out}/Tables/OB_N_3_`inc'"
+		replace inc_type = "`inc'" if inc_type == "" 
+	}
+	export excel using "${dir_out}/Tables/Z_OB_Decomposition_Nopo_summary.xlsx" ,  sheet("By sex" , replace)  firstrow(varl)
+	restore 
 	
 	
 	
