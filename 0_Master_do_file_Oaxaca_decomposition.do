@@ -56,7 +56,7 @@ About: Master Dofile
 	
 	* The Gambia 
 	do "$do_files\1_The_Gambia.do"	
-	
+	do "$do_files\2_Mauritania.do"	
 	
 	
 	
