@@ -1,13 +1,13 @@
 * World Bank Poverty & Gender Assessment
-* Guinea Bisao
+* Senegal
 * Sergio Rivera 
 * Individual's characteristics
 
-	use "${d_raw}\EHCVM\GNB\Datain\Menage\s01_me_GNB2021.dta", clear
-	merge m:1 grappe menage using "${d_raw}\EHCVM\GNB\Datain\Menage\s00_me_GNB2021.dta", ///
+	use "${d_raw}\EHCVM\SEN\Datain\Menage\s01_me_SEN2021.dta", clear
+	merge m:1 grappe menage using "${d_raw}\EHCVM\SEN\Datain\Menage\s00_me_SEN2021.dta", ///
 	  keepusing(s00q00 s00q01 s00q02 s00q03 s00q04 s00q08 s00q23a s00q27) nogen
-	merge 1:1 grappe menage s01q00a using "${d_raw}\EHCVM\GNB\Datain\Menage\s02_me_GNB2021.dta" , nogen // Educ
-	merge 1:1 grappe menage s01q00a using "${d_raw}\EHCVM\GNB\Datain\Menage\s04b_me_GNB2021.dta" , nogen // Principal Employment
+	merge 1:1 grappe menage s01q00a using "${d_raw}\EHCVM\SEN\Datain\Menage\s02_me_SEN2021.dta" , nogen // Educ
+	merge 1:1 grappe menage s01q00a using "${d_raw}\EHCVM\SEN\Datain\Menage\s04b_me_SEN2021.dta" , nogen // Principal Employment
 
 *** AGE 
 *** calcul de l'age utilisant les dates de naissance et celle debut enquete
@@ -328,7 +328,7 @@ replace educ_hi=educ_scol+1 if educ_hi==. & s02q03==1
 recode s04q29c ( 1/399 = 3) ( 400/899 = 2) ( 900/999 = 1) (9011 9021 9031 =.), gen(skillLev)
 
 	
-	save  "${d_raw}\working\GNB_individual.dta" , replace 
+	save  "${d_raw}\working\SEN_individual.dta" , replace 
 	
 	
 	
