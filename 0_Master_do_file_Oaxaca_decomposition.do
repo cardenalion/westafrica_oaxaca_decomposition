@@ -33,10 +33,10 @@ if "`c(username)'" == "SERGIO" {
 }
 	
 	*------------------- Command installation--------------------------------------*	
-	ssc install oaxaca		, replace
-	ssc install nopomatch	, replace
-	ssc install winsor2		, replace 
-	ssc install egenmore	, replace 
+	*ssc install oaxaca		, replace
+	*ssc install nopomatch	, replace
+	*ssc install winsor2	, replace 
+	*ssc install egenmore	, replace 
 	/* The wage gap decomposition is done country by country using the income measure constructed for an independent study.
 	*/
 	

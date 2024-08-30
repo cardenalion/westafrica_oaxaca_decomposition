@@ -254,7 +254,7 @@ replace inc_by_hour = . if inc_by_hour < 0
 	 */
 	 
 // Productivity -----------------------------------
-
+/*
 // Tables -----------------------------------
 tabstat ln_total_income_hVFL, stats(mean p25 p50 p75 sd) columns(statistics) long
 tabstat ln_total_income_hVFL, by(female) stats(mean p25 p50 p75 sd) columns(statistics) long
@@ -272,7 +272,7 @@ tabstat adjusted_tot_income, by(empstat2_) stats(mean p25 p50 p75 sd) columns(st
 tabstat adjusted_tot_income, by(sector2_) stats(mean p25 p50 p75 sd) columns(statistics) long
 tabstat adjusted_tot_income, by(rural) stats(mean p25 p50 p75 sd) columns(statistics) long
 tabstat adjusted_tot_income, by(informal) stats(mean p25 p50 p75 sd) columns(statistics) long
-
+*/
 	 * Sector and type of contract 
 	 ta empstat_ sector_  [iw=hhweight] if inlist(sector_,1,2,3), col row 
 	 
@@ -289,8 +289,9 @@ tabstat adjusted_tot_income, by(informal) stats(mean p25 p50 p75 sd) columns(sta
 *------------------------------------------------------------------------------*
 *-------------------------------- Regressions ---------------------------------*
 *------------------------------------------------------------------------------*
-	
-	gen tot_children = n_kids
+	drop n_kids
+	cap drop tot_children 
+	gen tot_children = n_kids_
 	rename agesq age_sq
 	gen agesq =  age_sq
 	

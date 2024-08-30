@@ -139,17 +139,11 @@ g w_wap = .
 replace w_wap = 0 if age>=5
 replace w_wap = 1 if age>=15 & w_wap < 66
 
-	* >> Main activity components
-	tab main_acti , gen(macti_)
-	
-	gen order_mainacti = main_acti_sar
-	recode order_mainacti (11 = -2 ) (12 = -1)
-	
+
 
 
 save "${d_raw}\working\GNB_na_firm2021.dta", replace
 
 
-* desc urban w_wap female born_here educ_1 educ_2 educ_3 educ_4 informality inc_by_hour inc_d_total inc_d_selfw inc_d_salw week_hours neet look_last7 look_last30
-* Have not found yet the variables pertaining to search for jobs.
+
 

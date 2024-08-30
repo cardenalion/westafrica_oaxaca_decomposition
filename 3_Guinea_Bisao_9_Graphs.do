@@ -254,7 +254,7 @@ replace inc_by_hour = . if inc_by_hour < 0
 	 */
 	 
 // Productivity -----------------------------------
-
+/*
 // Tables -----------------------------------
 tabstat ln_total_income_hVFL, stats(mean p25 p50 p75 sd) columns(statistics) long
 tabstat ln_total_income_hVFL, by(female) stats(mean p25 p50 p75 sd) columns(statistics) long
@@ -275,8 +275,8 @@ tabstat adjusted_tot_income, by(informal) stats(mean p25 p50 p75 sd) columns(sta
 
 	 * Sector and type of contract 
 	 ta empstat_ sector_  [iw=hhweight] if inlist(sector_,1,2,3), col row 
+	*/ 
 	 
-	 
 *------------------------------------------------------------------------------*
 *-------------------------------- Regressions ---------------------------------*
 *------------------------------------------------------------------------------*
@@ -289,9 +289,10 @@ tabstat adjusted_tot_income, by(informal) stats(mean p25 p50 p75 sd) columns(sta
 *------------------------------------------------------------------------------*
 *-------------------------------- Regressions ---------------------------------*
 *------------------------------------------------------------------------------*
-	
-	gen tot_children = n_kids
-	gen agesq =  age_sq
+	drop n_kids
+	cap drop tot_children 
+	gen tot_children = n_kids_
+	cap noi gen agesq =  age_sq
 	
 	
 	ds sector2_1  - sector2_5
@@ -311,7 +312,8 @@ tabstat adjusted_tot_income, by(informal) stats(mean p25 p50 p75 sd) columns(sta
 	label var ln_inc_d_selfw	"LN self employed income"
 	label var ln_inc_d_salw		"LN salaried income"
 	
-	*rename agesq age_sq
+	*
+	rename agesq age_sq
 	
 	foreach inc in ln_inc_by_hour ln_inc_d_total ln_inc_d_selfw ln_inc_d_salw  {
 		if "`inc'" != "ln_inc_by_hour" {
