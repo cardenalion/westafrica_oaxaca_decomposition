@@ -126,45 +126,40 @@ bys empstat2_ : sum aux1missing if empstat_ !=.
 	
 //Total income salary + self_income
 
-g self_income_pc_h = self_income_pc / (s04q37* s04q36 / 4 )
+g self_income_pc_h = self_income_pc / s04q37
 
 foreach var in wage_h self_income_pc_h {
     replace `var' = 0 if missing(`var')
 }
 
-egen total_income_h =	rowtotal(wage_h  self_income_pc_h ) , m   // Just dividing HH level data per N workers
+g total_income_h = wage_h + self_income_pc_h   // Just dividing HH level data per N workers
 
-egen total_income_hV2 = rowtotal(wage_h  self_incomeV2_pc ), m // Using lab supply provided per individual
+g total_income_hV2 = wage_h + self_incomeV2_pc // Using lab supply provided per individual
 
 count if total_income_hV!=.
 
 replace total_income_h=. if total_income_h==0     // 21,552   to missing out of  41,501!!
 replace total_income_hV2=. if total_income_hV2==0   // 17,249  to missing out of  41,501!!
 
+
 gen adjusted_self_incomeV2=self_incomeV2_pc
 sum self_incomeV2_pc, d
-replace adjusted_self_incomeV2 = . if self_incomeV2_pc<r(p1)
-replace adjusted_self_incomeV2 = . if self_incomeV2_pc>r(p99)
+replace adjusted_self_incomeV2 = r(p1) if self_incomeV2_pc<r(p1)
+replace adjusted_self_incomeV2 = r(p99) if self_incomeV2_pc>r(p99)
 sum adjusted_self_incomeV2, d
 loc mino=r(min)
-gen adjusted_self_incomeFLV2= adjusted_self_incomeV2-`mino'+1 /* Bassically what this is doing is making the assumption that the lowest recorded income is effectively zero and shifting everything up by that amount */
+gen adjusted_self_incomeFLV2= adjusted_self_incomeV2-`mino'+1
 
 * Deal with the negatives...
 gen adjusted_self_income=self_income_pc_h
 sum self_income_pc_h, d
-replace adjusted_self_income = . if self_income_pc_h<r(p1)
-replace adjusted_self_income = . if self_income_pc_h>r(p99)
+replace adjusted_self_income = r(p1) if self_income_pc_h<r(p1)
+replace adjusted_self_income = r(p99) if self_income_pc_h>r(p99)
 sum adjusted_self_income, d
 loc mino=r(min)
-gen adjusted_self_incomeFL= adjusted_self_income-`mino'+1 /* Bassically what this is doing is making the assumption that the lowest recorded income is effectively zero and shifting everything up by that amount */
+gen adjusted_self_incomeFL= adjusted_self_income-`mino'+1
 
 
-	*** MAJOR EDIT !!!!!!!!!!
-	*replace self_incomeV2_pc = adjusted_self_incomeV2 // windsorization given the large outliers. 
-	*replace self_income_pc_h = adjusted_self_income  // windsorization given the large outliers. 
-	*** MAJOR EDIT !!!!!!!!!!
-	
-	
 replace year=2021
 save "${d_raw}\working\GNB_individualALL_2.dta", replace
 keep if _merge_a == 3 // // drop non occupied
@@ -377,9 +372,7 @@ replace inc_d_salw = 0 if empstat_ ==2 & inc_d_salw == .
 
 // >>> Total income 
 cap drop inc_d_total
-egen inc_d_total = rowmax(total_income_hV2 self_income_pc_h) ,
-*replace inc_d_total = . if inc_d_total <= 0
-* replace inc_d_total = . if total_income_hV2 == . // I was doing this becuause the total income mean results being lower than income per hour
+egen inc_d_total = rowmax(total_income_hV2 self_income_pc_h) , 
 * replace inc_d_total = inc_d_salw if inc_d_total == . & inc_d_salw != 0 
 * replace inc_d_total = inc_d_salw + inc_d_total if inc_d_total != . & inc_d_salw != . 
 * This replace was counting the wage double! 
@@ -393,8 +386,8 @@ di "Less than " round(100*r(N)/3435 ,0.001) "% reports income even though they a
 
 // >>> Weekly Hours worked  --------------
 cap drop week_hour*
-gen week_hour_first  = s04q37 * s04q36 / 4 // (hour   * days )/4 gives hours per week
-gen week_hour_second = s04q55 * s04q56 / 4 // heures * jours
+gen week_hour_first  = s04q37 * s04q36 / 4 
+gen week_hour_second = s04q55 * s04q56 / 4 
 egen week_hours = rowtotal(week_hour*) , m
 
 	* >> Neet
@@ -442,8 +435,8 @@ egen week_hours = rowtotal(week_hour*) , m
 	}
 
 	
-	gen exchange_tousd = 0.004908795 // the implied PPP exchange is 0.004908795
-		//  0.001803 is the simple  Direct exchange rate 
+	gen exchange_tousd = 0.001803  // 
+		
 	foreach var in inc_by_hour inc_d_total inc_d_selfw inc_d_salw inc_by_hour_IMP {
 		replace `var' = . if `var' <= 0 
 		gen `var'_usd = `var' * exchange_tousd * 1 // 
@@ -452,7 +445,7 @@ egen week_hours = rowtotal(week_hour*) , m
 
 	
 	cap drop ln_inc_by_hour
-	gen ln_inc_by_hour_usd	= ln(inc_by_hour_usd +1) // The total income used for this variable is total_income_hV2
+	gen ln_inc_by_hour	= ln(inc_by_hour+1) // The total income used for this variable is total_income_hV2
 	gen ln_inc_d_salw	= ln(inc_d_salw + 1)
 	gen ln_inc_d_total	= ln(inc_d_total + 1)
 	gen ln_inc_d_selfw	= ln(inc_d_selfw + 1)

@@ -72,26 +72,32 @@ if "`c(username)'" == "SERGIO" {
 	do "$do_files\3_Guinea_Bisao_2_own_production.do"
 	do "$do_files\3_Guinea_Bisao_3_Non_salary_income.do"
 	do "$do_files\3_Guinea_Bisao_4_total_income.do"
+	do "$do_files\3_Guinea_Bisao_5_non_agricultural_income.do" 
+	do "$do_files\3_Guinea_Bisao_9_Graphs.do" 
 	
 	* do "$do_files\3_Guinea_Bisao.do"
 	
 	* Senegal
-	do "$do_files\3_Senegal.do"
+	do "$do_files\3_Senegal_1.do"
 	do "$do_files\3_Senegal_2_own_production.do"
 	do "$do_files\3_Senegal_3_Non_salary_income.do"
-	
-	
+	do "$do_files\3_Senegal_4_total_income.do" 
+	do "$do_files\3_Senegal_9_Graphs.do" 
 	
 	
 	
 *---------------------------- Rundofiles -------------------------------------*	
 	
+	* Note: The implied PPP exchange rate is taken from:
+	* https://www.imf.org/external/datamapper/PPPEX@WEO/SEN/GNB/MRT/GMB
 	
 	
 	
 	
-	
-	
+	/*
+		do "$do_files\3_Senegal_9_Graphs.do" 
+		do "$do_files\3_Guinea_Bisao_9_Graphs.do"
+	*/
 	
 	
 	

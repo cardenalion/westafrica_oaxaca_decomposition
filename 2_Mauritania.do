@@ -142,6 +142,7 @@ ta educ_, gen(educ_)
 
 recode m3 (2 = 1) (1 = 0), gen(female_)
 ta female_, gen(female_)
+gen male = female_ == 0
 
 ren ln_inc_by_hour productivity
 gen ln_inc_by_hour = productivity
@@ -359,6 +360,7 @@ lab var firm_size_WB_1  "Size: Small: 5-19"
 lab var firm_size_WB_2  "Size: Medium: 20-49"
 lab var firm_size_WB_3  "Size: 50+"
 	
+	replace firm_size_WB_ = 1 if (empstat_ == 1 | empstat_ == 3 ) & firm_size_WB_
 	
 	save	"${d_raw}\working\MRT_LFS_work.dta" , replace 
 	
@@ -379,6 +381,33 @@ lab var firm_size_WB_3  "Size: 50+"
 *------------------------------------------------------------------------------*
 	use "${d_raw}\working\MRT_LFS_work.dta" , clear 
 	
+	
+	gen exchange_tousd = 0.092412901 // In 2016/2017 the implied PPP exchange is 0.092412901
+		//  0.002800 is the Simple Direct exchange rate 
+	foreach var in inc_by_hour inc_d_total inc_d_selfw inc_d_salw {
+		replace `var' = . if `var' == 0 
+		gen `var'_usd = `var' * exchange_tousd * 1000 // Because the answers are given in :  (en milliers d'UM)
+		replace `var'_usd = `var'_usd / 10 // In 2018 there was a change in currency which was of the form 10 MRO = 1 MRU
+		rename `var' locurr_`var' // locurr_ as in local currency 
+	}
+	gen ln_inc_by_hour_usd = ln(1+inc_by_hour)
+	*gen male = female == 0
+	gen sector2_6 = 1 if sector2_ == . & productivity != . 
+	replace sector2_ = 6 if sector2_ == . & productivity != . 
+	
+	label var inc_d_salw_usd	"Salaried Income" 
+	label var inc_d_selfw_usd	"Self-employed income"
+	label var inc_d_total_usd	"Total income Salaried and Self-employed"
+	label var inc_by_hour_usd	"Total income per hour"
+	
+	* Windsorization cutting extreme values that are most likely noise
+	sum inc_by_hour_usd inc_d_total , d
+	foreach var in inc_by_hour inc_d_total inc_d_selfw inc_d_salw {
+		quietly sum `var'_usd , d
+		replace `var'_usd = . if `var'_usd < r(p1)
+		replace `var'_usd = . if `var'_usd > r(p99)
+	}
+	sum inc_by_hour_usd inc_d_total , d
 	
 	*------------------------------------------------------------------------------*
 	*--------------------------- Descriptive Stats --------------------------------*
@@ -518,7 +547,7 @@ foreach categ in urban female born_here {
 		
 	twoway	(line cum_hw_m week_hours if female == 0 , sort lwidth(medthin)  lcolor("${color3}%60") ) ///
 			(line cum_hw_f week_hours , sort lwidth(medthin)  lcolor("${color2}%90") lpattern(dash) ) ///
-		,	$grph_reg $y_axis legend(order( 1 "Males" 2 "Females" )  region(lcolor(none)) )   ytitle("% below # of hours")  ylabel( 0(20)100, labsize(small)) xlabel( 0(10)110 , labsize(small)) ///
+		,	$inner_grid $grph_reg $y_axis legend(order( 1 "Males" 2 "Females" )  region(lcolor(none)) )   ytitle("% below # of hours")  ylabel( 0(20)100, labsize(small)) xlabel( 0(10)110 , labsize(small)) ///
 	note("Females: {&mu}{subscript:f}= `mu_f' {&sigma}{subscript:f}= `vr_f'" "Males:     {&mu}{subscript:m}= `mu_m' {&sigma}{subscript:m}= `vr_m'" , size (medsmall) position(11) ring(0) margin(medlarge))  xtitle("")
 	* subti("")
 	* xtitle(Hours) xtitle("# Hours worked" )
@@ -551,7 +580,7 @@ label var inc_by_hour "Total income per hour"
 			qui local vr_m = round(`r(sd)', 1)
 			
 	twoway (line cum_hw_m ln_`inc' if female == 0 , sort lwidth(medthin)  lcolor("${color3}%60") ) (line cum_hw_f ln_`inc' , sort lwidth(medthin)  lcolor("${color2}%90") lpattern(dash) ) ///
-	,	$grph_reg $y_axis legend(order( 1 "Males" 2 "Females" )  region(lcolor(none)) )   ytitle("%") ///
+	,	$inner_grid $grph_reg $y_axis legend( pos(6) order( 1 "Males" 2 "Females" )  region(lcolor(none)) )   ytitle("%") ///
 	note("Females: {&mu}{subscript:f}= `mu_f' {&sigma}{subscript:f}= `vr_f'" "Males:     {&mu}{subscript:m}= `mu_m' {&sigma}{subscript:m}= `vr_m'" , size (medsmall) position(4) ring(0) margin(medlarge))  xtitle("" ) 
 		* subti("Mauritania")  
 		* ylabel( 0(20)100, labsize(small)) xlabel( 0(20)180 , labsize(small))
@@ -565,7 +594,7 @@ label var inc_by_hour "Total income per hour"
 		* local bw = "bw(.19)"
 		
 		twoway (area fx_m x, fcolor("${color3}%30") lcolor("${color3}%60")) (area fx_f x, fcolor("${color2}%30") lcolor("${color2}%60") ) if uno == 1 `bnd' ///
-		,  $grph_reg $y_axis ytitle(" " )    legend(order( 1 "Males" 2 "Females" )  region(lcolor(white)) size(small)) ylabel(, noticks nolabels) note("Females: {&mu}{subscript:f}= `mu_f' {&sigma}{subscript:f}= `vr_f'" "Males:     {&mu}{subscript:m}= `mu_m' {&sigma}{subscript:m}= `vr_m'" , size (medsmall) position(2) ring(0) margin(medlarge)) ///
+		, $inner_grid $grph_reg $y_axis ytitle(" " )    legend(pos(6) order( 1 "Males" 2 "Females" )  region(lcolor(white)) size(small)) ylabel(, noticks nolabels) note("Females: {&mu}{subscript:f}= `mu_f' {&sigma}{subscript:f}= `vr_f'" "Males:     {&mu}{subscript:m}= `mu_m' {&sigma}{subscript:m}= `vr_m'" , size (medsmall) position(2) ring(0) margin(medlarge)) ///
 		name(`inc' , replace)  xtitle("")
 		// subti("Mauritania")  
 		* xtitle("`vrlab' in logs", size(small))
@@ -583,6 +612,33 @@ label var inc_by_hour "Total income per hour"
 	// subtitle(Males, position(10) ring(0) margin(10-pt))
 	graph export "${dir_out}/Graphs/MRT 3. Main activity Male.png",   replace width(1995)  height(1452)
 
+	
+	
+	
+	twoway ( kdensity ln_inc_by_hour_usd if sector2_1 == 1)  ( kdensity ln_inc_by_hour_usd if sector2_2==1 ) ( kdensity ln_inc_by_hour_usd if sector2_3==1  ) ( kdensity ln_inc_by_hour_usd if sector2_4==1  ) (kdensity ln_inc_by_hour_usd if sector2_5==1 ) (kdensity ln_inc_by_hour_usd if sector2_ == 6 , lpattern(dash) ) if female == 0 , legend(order(1 "Agriculture" 2 "Manufacture" 3 "Trade and distribution services" 4 "Low-skilled services" 5 "High-skilled services" 6 "Informal-Other" )  pos(6) col(2)) $inner_grid $y_axis ///
+	 $noaxis_tit ylabel(, noticks nolabels) name(male , replace)
+	 graph export "${dir_out}/Graphs/MRT 2. Kernel by sector male.png",  as(png)    replace width(1995)  height(1452)
+	 
+	  twoway ( kdensity ln_inc_by_hour_usd if sector2_1 == 1)  ( kdensity ln_inc_by_hour_usd if sector2_2==1 ) ( kdensity ln_inc_by_hour_usd if sector2_3==1  ) ( kdensity ln_inc_by_hour_usd if sector2_4==1  ) (kdensity ln_inc_by_hour_usd if sector2_5==1 )  (kdensity ln_inc_by_hour_usd if sector2_== 6 , lpattern(dash) ) if female == 1 ,  $inner_grid $y_axis legend( order(1 "Agriculture" 2 "Manufacture" 3 "Trade and distribution services" 4 "Low-skilled services" 5 "High-skilled services" 6 "Informal-Other" )  pos(6) col(2)) ///
+	 $noaxis_tit ylabel(, noticks nolabels) name(female , replace)
+	 * legend(lab(1 "Agriculture") lab(2 "Manufacture") lab(3 "Trade and distribution services") lab(4 "Low-skilled services") lab(5 "High-skilled services")  pos(6) col(2))
+	 graph export "${dir_out}/Graphs/MRT 2. Kernel by sector female.png",  as(png)    replace width(1995)  height(1452)
+	 
+	 graph hbar (sum) female (sum ) male if inc_by_hour_usd != . , over(sector2_ , relabel(1 "Agriculture" 2 "Manufacture" 3 "Trade and distribution services" 4 "Low-skilled services" 5 "High-skilled services" 6 "Informal-Other")) legend(order(1 "Female" 2 "Male"))  ylabel(, nogrid) name(sector_ , replace)
+	 graph export "${dir_out}/Graphs/MRT 6. Share sector by sex.png",  as(png)    replace width(1995)  height(1452)
+	 
+	 graph hbar (sum) female (sum ) male if inc_by_hour_usd != . , over(empstat_ , ) legend(order(1 "Female" 2 "Male"))  ylabel(, nogrid) name(empstat_sex , replace)
+	 graph export "${dir_out}/Graphs/MRT 6. Share emp_categ by sex.png",  as(png)    replace width(1995)  height(1452)
+	 
+	 graph hbar (sum) female (sum ) male if inc_by_hour_usd != . , over(edu_categ , ) legend(order(1 "Female" 2 "Male"))  ylabel(, nogrid) name(educ_sex , replace)
+	 graph export "${dir_out}/Graphs/MRT 6. Share educ by sex.png",  as(png)    replace width(1995)  height(1452)
+	 
+	
+	
+	
+	
+	
+	
 	
 *------------------------------------------------------------------------------*
 *-------------------------------- Regressions ---------------------------------*
@@ -672,19 +728,19 @@ label var inc_by_hour "Total income per hour"
 		*	
 		preserve
 		cap noi drop _supp _match
-		nopomatch age age_sq  $edulvl	$hh_charac	`add_control'	, outcome(`inc') by(female) fact(wgt) sd filename("${dir_out}/Tables/MRT/OB_N_1_`inc'") replace
+		nopomatch age age_sq  $edulvl	$hh_charac	`add_control'	, outcome(`inc') by(male) fact(wgt) sd filename("${dir_out}/Tables/MRT/OB_N_1_`inc'") replace
 		*
 		restore
 		
 		preserve
 		cap noi drop _supp _match
-		nopomatch age age_sq  $edulvl	$sector		$hh_charac   `add_control'  , outcome(`inc') by(female) fact(wgt) sd filename("${dir_out}/Tables/MRT/OB_N_2_`inc'") replace
+		nopomatch age age_sq  $edulvl	$sector		$hh_charac   `add_control'  , outcome(`inc') by(male) fact(wgt) sd filename("${dir_out}/Tables/MRT/OB_N_2_`inc'") replace
 		*
 		restore
 		
 		preserve
 		cap noi drop _supp _match
-		nopomatch age age_sq  $edulvl	$sector		$firmsize	$hh_charac	`add_control'  , outcome(`inc') by(female) fact(wgt) sd filename("${dir_out}/Tables/MRT/OB_N_3_`inc'") replace
+		nopomatch age age_sq  $edulvl	$sector		$firmsize	$hh_charac	`add_control'  , outcome(`inc') by(male) fact(wgt) sd filename("${dir_out}/Tables/MRT/OB_N_3_`inc'") replace
 		restore
 	}
 	

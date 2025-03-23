@@ -103,10 +103,10 @@
 	lab var wage_sj "Wage of secondary job" 	
 	sum wage_sj
 
-	g wage_ann = wage_mj + wage_sj
+	egen wage_ann = rowtotal (wage_mj  wage_sj ) , m 
 	
-	g wage_h = wage_ann/360/s04q37
-	
+	g wage_h = (wage_ann/360)*(1/s04q37)
+	*** MAJOR EDIT !!!!!!!!!!
 
 // Missings?	
 sum wage_h wage_ann wage_mj  wage_sj s04q36 s04q37 s04q39 self_incomeV2_pc  
@@ -125,38 +125,44 @@ bys empstat2_ : sum aux1missing if empstat_ !=.
 	
 //Total income salary + self_income
 
-g self_income_pc_h = self_income_pc / s04q37
+g self_income_pc_h = self_income_pc / (s04q37* s04q36 / 4 )
 
 foreach var in wage_h self_income_pc_h {
     replace `var' = 0 if missing(`var')
 }
 
-g total_income_h = wage_h + self_income_pc_h   // Just dividing HH level data per N workers
+egen total_income_h =	rowtotal(wage_h  self_income_pc_h ) , m   // Just dividing HH level data per N workers
 
-g total_income_hV2 = wage_h + self_incomeV2_pc // Using lab supply provided per individual
+egen total_income_hV2 = rowtotal(wage_h  self_incomeV2_pc ), m // Using lab supply provided per individual
 
 count if total_income_hV!=.
 
 replace total_income_h=. if total_income_h==0     // 21,552   to missing out of  41,501!!
 replace total_income_hV2=. if total_income_hV2==0   // 17,249  to missing out of  41,501!!
 
-
+*Windsorization 
 gen adjusted_self_incomeV2=self_incomeV2_pc
 sum self_incomeV2_pc, d
-replace adjusted_self_incomeV2 = r(p1) if self_incomeV2_pc<r(p1)
-replace adjusted_self_incomeV2 = r(p99) if self_incomeV2_pc>r(p99)
+replace adjusted_self_incomeV2 = . if self_incomeV2_pc<r(p1)
+replace adjusted_self_incomeV2 = . if self_incomeV2_pc>r(p99)
 sum adjusted_self_incomeV2, d
 loc mino=r(min)
-gen adjusted_self_incomeFLV2= adjusted_self_incomeV2-`mino'+1
+gen adjusted_self_incomeFLV2= adjusted_self_incomeV2-`mino'+1 /* Bassically what this is doing is making the assumption that the lowest recorded income is effectively zero and shifting everything up by that amount */
 
 * Deal with the negatives...
 gen adjusted_self_income=self_income_pc_h
 sum self_income_pc_h, d
-replace adjusted_self_income = r(p1) if self_income_pc_h<r(p1)
-replace adjusted_self_income = r(p99) if self_income_pc_h>r(p99)
+replace adjusted_self_income = . if self_income_pc_h<r(p1)
+replace adjusted_self_income = . if self_income_pc_h>r(p99)
 sum adjusted_self_income, d
 loc mino=r(min)
-gen adjusted_self_incomeFL= adjusted_self_income-`mino'+1
+gen adjusted_self_incomeFL= adjusted_self_income-`mino'+1 /* Bassically what this is doing is making the assumption that the lowest recorded income is effectively zero and shifting everything up by that amount */
+
+
+*** MAJOR EDIT !!!!!!!!!!
+*replace self_incomeV2_pc = adjusted_self_incomeV2 // windsorization given the large outliers. 
+*replace self_income_pc_h = adjusted_self_income  // windsorization given the large outliers. 
+*** MAJOR EDIT !!!!!!!!!!
 
 
 replace year=2021
@@ -356,10 +362,7 @@ label var inc_by_hour_IMP "Total income per hour"
 gen inc_by_hour = total_income_hV2
 label var inc_by_hour "Total income per hour"
 
-// >>> Total income 
-cap drop inc_d_total
-egen inc_d_total = rowmax(total_income_hV2 self_income_pc_h) , 
-label var inc_d_total "Total income: Salaried and Self-employed"
+
 
 // >> Self employed income 
 cap drop inc_d_selfw
@@ -367,10 +370,23 @@ gen inc_d_selfw = self_incomeV2_pc
 label var inc_d_selfw "Self-employed income:"
 
 // >> Salaried income inc_d_salw 
-gen inc_d_salw = wage_ann/360/s04q37
+gen inc_d_salw = wage_h
+*(wage_ann/360) * (1 / s04q37)
 label var inc_d_salw "Salaried Income:" 
 replace inc_d_salw = . if empstat_ != 2 
 replace inc_d_salw = 0 if empstat_ ==2 & inc_d_salw == .
+
+// >>> Total income 
+cap drop inc_d_total
+egen inc_d_total = rowmax( total_income_hV2 self_income_pc_h ) ,  
+* replace inc_d_total = . if inc_d_total <= 0
+* replace inc_d_total = . if total_income_hV2 == . // I was doing this becuause the total income mean results being lower than income per hour
+* replace inc_d_total = inc_d_salw if inc_d_total == . & inc_d_salw != 0 
+* replace inc_d_total = inc_d_salw + inc_d_total if inc_d_total != . & inc_d_salw != . 
+* This replace was counting the wage double! 
+label var inc_d_total "Total income: Salaried and Self-employed"
+
+*** MAJOR EDIT !!!!!!!!!!
 
 count if inc_d_sal > 0 & inc_d_sal !=.
 
@@ -417,20 +433,39 @@ egen week_hours = rowtotal(week_hour*) , m
 		replace `var' = . if merge_labforce == 1
 	}
 	
-	* desc urban w_wap female born_here educ_1 educ_2 educ_3 educ_4 informality inc_by_hour inc_d_total inc_d_selfw inc_d_salw week_hours neet look_last7 look_last30
-* Have not found yet the variables pertaining to search for jobs.
+	
+	*********************
+	* Convertion to USD * 
+	*********************
+	foreach var in wage_h inc_by_hour_IMP  inc_d_salw inc_d_selfw inc_d_total {
+		replace `var' = . if merge_labforce == 1
+		replace `var' = . if empstat_ == .
+	}
+
+	
+	gen exchange_tousd = 0.004709628  // 0.004709628 FROM IMF in 2021
+	// 0.001803 Direct exchange rate 
+		
+	foreach var in inc_by_hour inc_d_total inc_d_selfw inc_d_salw inc_by_hour_IMP {
+		replace `var' = . if `var' <= 0 /* I decided against the former procedure of shifting the distr and dropped all negative incomes.  */
+		gen `var'_usd = `var' * exchange_tousd * 1 // 
+		rename `var' locurr_`var' // locurr_ as in local currency 
+	}
+
 	cap drop ln_inc_by_hour
-	gen ln_inc_by_hour	= ln(inc_by_hour+1) // The total income used for this variable is total_income_hV2
+	gen ln_inc_by_hour_usd	= ln(inc_by_hour_usd +1) // The total income used for this variable is total_income_hV2
 	gen ln_inc_d_salw	= ln(inc_d_salw + 1)
 	gen ln_inc_d_total	= ln(inc_d_total + 1)
 	gen ln_inc_d_selfw	= ln(inc_d_selfw + 1)
 	gen ln_inc_by_hour_IMP	= ln(inc_by_hour_IMP +1) // This one uses the adjusted_self_incomeFL variable --> y_imp --> total_income_h_impAGS
 	
-	label var self_incomeV2_pc "Hourly slef income using lab supply provided per individual"
+	label var self_incomeV2_pc "Hourly self income using lab supply provided per individual"
 	
 save "${d_raw}\working\SEN_individual_reg_FULL.dta", replace
 
-
+	
+	* desc urban w_wap female born_here educ_1 educ_2 educ_3 educ_4 informality inc_by_hour inc_d_total inc_d_selfw inc_d_salw week_hours neet look_last7 look_last30
+	* Have not found yet the variables pertaining to search for jobs.
 
 
 

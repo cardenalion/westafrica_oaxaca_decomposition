@@ -210,8 +210,10 @@ replace educ_hi=educ_scol+1 if educ_hi==. & s02q03==1
 	label val female sex_fem
 	
 	* >> Born here / Nationality s01q15 :  1.15. De quelle nationalité est [NOM] ?
+	cap drop born_here
 	gen born_here = 0
-	replace born_here = 1 if s01q15 == 8
+	replace born_here = 1 if s01q15 == 13
+	*replace born_here = 1 if hnation == 13
 	label define origin  0 "Foreign" 1 "National" , modify 
 	label val born_here origin 
 	
